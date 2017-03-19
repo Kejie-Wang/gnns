@@ -1,0 +1,6 @@
+.idea/
+cmake-build-debug/
+saved_graph/
+**/.DS_Store
+references/
+dataset/
