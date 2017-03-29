@@ -8,6 +8,8 @@
 namespace gnns
 {
     typedef unsigned int size_t;
+
+    typedef size_t IndexType;
 }
 
 #endif //GNNS_DEFINE_H
