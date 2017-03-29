@@ -14,7 +14,7 @@ namespace gnns
     template <typename T>
     void save_to_file(const Matrix<T>& m, const std::string& file_name)
     {
-        FILE *fp = fopen(file_name.c_str(), "rb");
+        FILE *fp = fopen(file_name.c_str(), "wb");
 
         if(fp == NULL)
         {
