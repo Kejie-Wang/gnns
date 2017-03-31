@@ -84,7 +84,7 @@ namespace gnns
             Matrix<IndexType>& indices,
             Matrix<DistanceType> dists,
             size_t knn,
-            const Search_Params& params) const
+            const Search_Params& params)
         {
             //assert the vector in same dim
             assert(queries.cols==vec_len);
@@ -95,7 +95,10 @@ namespace gnns
 
             //for each query
             for(int i=0;i<queries.rows;++i)
-                find_neighbor(queries[i], indices[i], dists[i], knn, params);
+            {
+                std::cout << i << std::endl;
+                find_neighbors(queries[i], indices[i], dists[i], knn, params);
+            }
         }
 
     public:
@@ -112,27 +115,23 @@ namespace gnns
             while(R--)
             {
                 //random an initial point
-                srand(time(NULL));
+                srand((unsigned)time(0));
                 size_t v_it = rand()%points_num;
                 DistanceType min_dist = -1;
+                std::cout << v_it;
                 while(true)
                 {
                     std::vector<IndexType> neighbors = graph.get_neighbors(v_it, params.E);
                     std::vector<DistanceType> dist_to_query(neighbors.size());
 
-                    std::cout << v_it << "\t" << min_dist << std::endl;
-                    std::cout << "neighbors" << std::endl;
-                    for(auto i : neighbors)
-                    {
-                        std::cout << i << "\t";
-                    }
-                    std::cout << std::endl << "--------" << std::endl;
                     for(int i=0;i<neighbors.size();++i)
                     {
                         IndexType neighbor_index = neighbors[i];
-                        dist_to_query[i] = distance(points[i], query, vec_len);
+                        dist_to_query[i] = distance(points[neighbor_index], query, vec_len);
+                        // std::cout << neighbor_index << "\t" << dist_to_query[i] << std::endl;
                         dist_and_index.insert(std::pair<DistanceType, IndexType>(dist_to_query[i], neighbor_index));
                     }
+
                     IndexType min_index = (std::minmax_element(dist_to_query.begin(), dist_to_query.end())).first - dist_to_query.begin();
 
                     if(dist_to_query[min_index] < min_dist || min_dist == -1)
@@ -142,21 +141,26 @@ namespace gnns
                     }
                     else
                     {
-                        std::cout << "break" << std::endl;
+                        std::cout << std::endl;
                         break;
                     }
+                    std::cout << "-->" << v_it;
                 }
                 if(R==0 && dist_and_index.size() < knn)
                 {
+                    std::cout << "R++" << std::endl;
                     R += 1;
                 }
             }
+
             size_t k = 0;
             for(auto it = dist_and_index.begin(); it!=dist_and_index.end();++it)
             {
                 dist[k] = it->first;
                 index[k] = it->second;
                 k++;
+                if(k==knn)
+                    break;
             }
         }
 
