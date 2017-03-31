@@ -11,7 +11,7 @@
 struct Search_Params
 {
 
-    Search_Params(size_t R_=1, size_t E_=100)
+    Search_Params(size_t R_=1, size_t E_=1000)
     {
         R = R_;
         E = E_;
