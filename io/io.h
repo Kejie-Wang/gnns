@@ -6,8 +6,8 @@
 #define GNNS_IO_H
 
 #include "matrix.h"
+#include "general.h"
 #include <string>
-#include <exception>
 
 namespace gnns
 {
@@ -18,7 +18,7 @@ namespace gnns
 
         if(fp == NULL)
         {
-            throw std::invalid_argument("const std::string file_name");
+            throw GnnsException(std::string("File ") + file_name + "is NOT exist!\n");
         }
 
         for(int i=0;i<m.rows;++i)
@@ -35,11 +35,13 @@ namespace gnns
     template <typename T>
     Matrix<T> load_from_file(const std::string& file_name)
     {
+        std::cout << "load_from_file " << file_name << std::endl;
+
         FILE *fp = fopen(file_name.c_str(), "rb");
 
         if (fp == NULL)
         {
-            throw std::invalid_argument("const std::string file_name");
+            throw GnnsException(std::string("File ") + file_name + "is NOT exist!\n");
         }
 
         //read the vector dimension
@@ -60,7 +62,7 @@ namespace gnns
                 fread(&dim_, 4, 1, fp);
                 if (dim_ != dim)
                 {
-                    throw std::length_error("The dimensions of all rows are NOT same!\n");
+                    throw GnnsException("The dimensions of all rows are NOT same!\n");
                 }
                 fread(vecs + i * dim, sizeof(T), dim, fp);
             }
