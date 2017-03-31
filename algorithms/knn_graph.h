@@ -64,33 +64,59 @@ namespace gnns
          * @brief use a naive construction way to build a knn nearest neighbor graph
          * @param data: the coordinate of the point in matrix type with shape [point_num, dim]
          */
-        void naive_construction(const Matrix<ElementType>& data)
+        void naive_construction(const std::vector<ElementType*>& points, const size_t vec_len, const size_t k)
         {
-            size_t vec_num = data.rows;
+            size_t vec_num = points.size();
+
             DistanceType *d = new DistanceType[vec_num*vec_num];
             Matrix<DistanceType> dist(d, vec_num, vec_num);
 
             //compute the distance between each two points
-            for(int i=0;i<data.rows;++i)
+            for(int i=0;i<vec_num;++i)
             {
-                for(int j=i+1;j<data.rows;++j)
+                for(int j=i+1;j<vec_num;++j)
                 {
-                    ElementType* v1 = data[i];
-                    ElementType* v2 = data[j];
-                    dist[i][j] = dist[j][i] = distance(v1, v2, data.cols);
+                    ElementType* v1 = points[i];
+                    ElementType* v2 = points[j];
+                    dist[i][j] = dist[j][i] = distance(v1, v2, vec_len);
                 }
             }
-            for(int i=0;i<data.rows;++i)
+
+            for(int i=0;i<vec_num;++i)
             {
                 nth_index_element(dist[i], vec_num, distances[i], indices[i], k);
             }
         }
 
-        void build_graph(const Matrix<ElementType>& data, BUILD_GRAPH_METHOD method)
+    public:
+
+        /*Default constructor*/
+        Knn_Graph(){}
+
+        ~Knn_Graph()
         {
+            if(indices.ptr())
+                delete[] indices.ptr();
+            if(distances.ptr())
+                delete[] distances.ptr();
+        }
+
+        /*
+         *@brief use the data to build a k nearest graph
+         *@param data: the points data in shape [point_num, vec_len]
+         *@param method: the method to build the graph
+         *@param k: the param k of knn graph
+         */
+        void build_graph(const std::vector<ElementType*>& points, const size_t vec_len, const size_t k, BUILD_GRAPH_METHOD method)
+        {
+            size_t vec_num = points.size();
+            indices = Matrix<IndexType>(new IndexType[vec_num*k], vec_num, k);
+            distances = Matrix<DistanceType>(new DistanceType[vec_num*k], vec_num, k);
+            this->k = k;
+
             if(method==NAIVE)
             {
-                naive_construction(data);
+                naive_construction(points, vec_len, k);
             }
         }
 
@@ -108,38 +134,6 @@ namespace gnns
             }catch (std::exception& e){
                 throw e;
             }
-        }
-
-    public:
-
-        /*Default constructor*/
-        Knn_Graph(){}
-
-        /*
-         *
-         * */
-        Knn_Graph(const Matrix<ElementType>& data, const size_t k = 1000, BUILD_GRAPH_METHOD method=NAIVE)
-        {
-            this->k = k;
-            indices = Matrix<IndexType>(new IndexType[data.rows*k], data.rows, k);
-            distances = Matrix<DistanceType>(new DistanceType[data.rows*k], data.rows, k);
-            build_graph(data, method);
-        }
-
-        /*
-         *
-         * */
-        Knn_Graph(const std::string& graph_index_path, const std::string& graph_dist_path)
-        {
-            load_graph(graph_index_path, graph_dist_path);
-            k = indices.cols;
-        }
-
-
-        ~Knn_Graph()
-        {
-            delete[] indices.ptr();
-            delete[] distances.ptr();
         }
 
         /*

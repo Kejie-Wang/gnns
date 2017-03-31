@@ -18,7 +18,7 @@ namespace gnns
     class Gnns_Params : public Index_Params
     {
     public:
-        Gnns_Params(size_t Graph_k = 1000, BUILD_GRAPH_METHOD method = NAIVE)
+        Gnns_Params(size_t Graph_k = 10, BUILD_GRAPH_METHOD method = NAIVE)
         {
             algorithm = "GNNS";
             this->Graph_k = Graph_k;
@@ -51,19 +51,33 @@ namespace gnns
         //Default constructor
         Gnns_Index(){}
 
-        /*
-         *
-         */
-        Gnns_Index(const Matrix<ElementType>& data, const std::string& graph_index_path, const std::string& graph_dist_path)
-            : graph(graph_index_path, graph_dist_path)
+        Gnns_Index(const Matrix<ElementType>& data, Gnns_Params params = Gnns_Params())
         {
             setDataset(data);
+            k = params.Graph_k;
+            method = params.method;
         }
 
-        Gnns_Index(const Matrix<ElementType>& data, Gnns_Params params = Gnns_Params())
-            : graph(data, params.Graph_k, params.method)
+        /*
+         *@breif build the index from the saved graph
+         */
+        void build_index(const std::string& graph_index_path, const std::string& graph_dist_path, bool rebuild=false)
         {
-            setDataset(data);
+            if(rebuild)
+            {
+                graph.build_graph(points, vec_len, k, method);
+                graph.save_graph(graph_index_path, graph_dist_path);
+            }
+            else
+            {
+                try{
+                    graph.load_graph(graph_index_path, graph_dist_path);
+                }catch(std::exception& e){
+                    std::cout << "The saved graph is not exist and build a graph, this may cost lots of time...";
+                    graph.build_graph(points, vec_len, k, method);
+                    graph.save_graph(graph_index_path, graph_dist_path);
+                }
+            }
         }
 
         void knn_search(const Matrix<ElementType>& queries,
@@ -158,6 +172,12 @@ namespace gnns
 
         //point number
         size_t points_num;
+
+        //param k of knn grapn
+        size_t k;
+
+        //build graph method
+        BUILD_GRAPH_METHOD method;
 
         //Distance
         Distance distance;
