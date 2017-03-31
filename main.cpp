@@ -20,18 +20,29 @@ const string graph_dist_saved_path = "../saved_graph/dist.fvec";
 int main()
 {
     Matrix<float> data = load_from_file<float>(siftsmall_base_path);
-    Matrix<float> query = load_from_file<float>(siftsmall_query_path);
+    Matrix<float> queries = load_from_file<float>(siftsmall_query_path);
 
-    Gnns_Index<L2Distance<float> > gnns_index(data, graph_index_saved_path, graph_dist_saved_path);
+    Gnns_Index<L2Distance<float> > gnns_index(data);
+    gnns_index.build_index(graph_index_saved_path, graph_dist_saved_path);
 
-    int knn = 1;
-    Matrix<IndexType> indices(new IndexType[knn], 1, knn);
-    Matrix<float> dists(new float[knn], 1, knn);
 
-    gnns_index.find_neighbors(query[0], indices[0], dists[0], knn, Search_Params());
+    int knn = 10;
+    Matrix<IndexType> indices(new IndexType[queries.rows*knn], queries.rows, knn);
+    Matrix<float> dists(new float[queries.rows*knn], queries.rows, knn);
+
+    for(int i=0;i<queries.rows;++i)
+    {
+        for(int j=0;j<knn;++j)
+        {
+            indices[i][j];
+            dists[i][j];
+        }
+    }
+
+    gnns_index.knn_search(queries, indices, dists, knn, Search_Params());
 
     delete data.ptr();
-    delete query.ptr();
+    delete queries.ptr();
     delete indices.ptr();
     delete dists.ptr();
 }
