@@ -18,7 +18,7 @@ namespace gnns
     class Gnns_Params : public Index_Params
     {
     public:
-        Gnns_Params(size_t Graph_k = 10, BUILD_GRAPH_METHOD method = NAIVE)
+        Gnns_Params(size_t Graph_k = 1000, BUILD_GRAPH_METHOD method = NAIVE)
         {
             algorithm = "GNNS";
             this->Graph_k = Graph_k;
@@ -39,8 +39,8 @@ namespace gnns
     private:
         void setDataset(const Matrix<ElementType>& data)
         {
-            points_num = data.rows;
-            vec_len = data.cols;
+            this->points_num = data.rows;
+            this->vec_len = data.cols;
             for(int i=0;i<points_num;++i)
             {
                 points.push_back(data[i]);
@@ -55,7 +55,7 @@ namespace gnns
         {
             setDataset(data);
             k = params.Graph_k;
-            method = params.method;
+            this->method = params.method;
         }
 
         /*
@@ -73,7 +73,7 @@ namespace gnns
                 try{
                     graph.load_graph(graph_index_path, graph_dist_path);
                 }catch(std::exception& e){
-                    std::cout << "The saved graph is not exist and build a graph, this may cost lots of time...";
+                    std::cout << "The saved graph is not exist and building a graph, this may cost lots of time..." << std::endl;
                     graph.build_graph(points, vec_len, k, method);
                     graph.save_graph(graph_index_path, graph_dist_path);
                 }
@@ -93,15 +93,24 @@ namespace gnns
             assert(indices.cols>=knn);
             assert(dists.cols>=knn);
 
+            if(params.E > k)
+            {
+                std::cout << "WARNINGS: The search expand E in param exceeds the k (param of the build knn graph)" << std::endl;
+                std::cout << "WARNINGS: The procedure will use k(" << k << ")" << " as the search expand." << std::endl;
+                std::cout << "WARNINGS: For using a larger search expand, you can rebuild the graph with a larger k." << std::endl;
+            }
+            srand((unsigned)time(0));
             //for each query
             for(int i=0;i<queries.rows;++i)
             {
-                std::cout << i << std::endl;
+                ElementType* q = queries[i];
+                IndexType* in = indices[i];
+                DistanceType* d = dists[i];
                 find_neighbors(queries[i], indices[i], dists[i], knn, params);
             }
         }
 
-    public:
+    private:
         void find_neighbors(const ElementType* query,
             IndexType* index,
             DistanceType* dist,
@@ -115,10 +124,9 @@ namespace gnns
             while(R--)
             {
                 //random an initial point
-                srand((unsigned)time(0));
                 size_t v_it = rand()%points_num;
                 DistanceType min_dist = -1;
-                std::cout << v_it;
+                // std::cout << v_it << std::endl;
                 while(true)
                 {
                     std::vector<IndexType> neighbors = graph.get_neighbors(v_it, params.E);
@@ -141,10 +149,10 @@ namespace gnns
                     }
                     else
                     {
-                        std::cout << std::endl;
+                        // std::cout << std::endl;
                         break;
                     }
-                    std::cout << "-->" << v_it;
+                    // std::cout << "-->" << v_it;
                 }
                 if(R==0 && dist_and_index.size() < knn)
                 {

@@ -157,7 +157,7 @@ namespace gnns
             std::vector<DistanceType> dists,
              int graph_search_expand=-1)
         {
-            if(graph_search_expand == -1)
+            if(graph_search_expand == -1 || graph_search_expand > k)
             {
                 graph_search_expand = k;
             }
@@ -173,7 +173,7 @@ namespace gnns
 
         std::vector<IndexType> get_neighbors(const IndexType search_index, int graph_search_expand=-1)
         {
-            if(graph_search_expand == -1)
+            if(graph_search_expand == -1 || graph_search_expand > k)
             {
                 graph_search_expand = k;
             }
