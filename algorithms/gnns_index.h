@@ -103,9 +103,7 @@ namespace gnns
             //for each query
             for(int i=0;i<queries.rows;++i)
             {
-                ElementType* q = queries[i];
-                IndexType* in = indices[i];
-                DistanceType* d = dists[i];
+                // std::cout << i << std::endl;
                 find_neighbors(queries[i], indices[i], dists[i], knn, params);
             }
         }
@@ -126,12 +124,11 @@ namespace gnns
                 //random an initial point
                 size_t v_it = rand()%points_num;
                 DistanceType min_dist = -1;
-                // std::cout << v_it << std::endl;
+                // std::cout << v_it;
                 while(true)
                 {
                     std::vector<IndexType> neighbors = graph.get_neighbors(v_it, params.E);
                     std::vector<DistanceType> dist_to_query(neighbors.size());
-
                     for(int i=0;i<neighbors.size();++i)
                     {
                         IndexType neighbor_index = neighbors[i];

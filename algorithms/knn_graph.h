@@ -14,6 +14,7 @@
 #include "io.h"
 #include "dist.h"
 #include "define.h"
+#include "general.h"
 
 namespace gnns
 {
@@ -131,6 +132,11 @@ namespace gnns
             try{
                 indices = load_from_file<IndexType>(graph_index_path);
                 distances = load_from_file<DistanceType>(graph_dist_path);
+                if(indices.rows != distances.rows || indices.cols != distances.cols)
+                {
+                    throw GnnsException("Saved graph file error\n");
+                }
+                k = indices.cols;
             }catch (std::exception& e){
                 throw e;
             }
