@@ -16,23 +16,17 @@ namespace gnns
     {
     public:
         //constructor
-        Matrix(T* data_=nullptr, size_t rows_=0, size_t cols_=0) :
-                data(data_), rows(rows_), cols(cols_)
+        Matrix(T* data_=nullptr, size_t rows_=0, size_t cols_=0, size_t strides_=0) :
+                data(data_), rows(rows_), cols(cols_), strides(strides_)
         {
+            if(strides_ == 0) strides=cols;
         }
 
-        Matrix(const Matrix<T>& m)
-        {
-            cols = m.cols;
-            rows = m.rows;
-            data = new T[cols*rows];
-            memcpy(data, m.data, cols*rows*sizeof(T));
-        }
 
         //overload the operator [] to return a pointer
         inline T* operator[](size_t index) const
         {
-            return reinterpret_cast<T*>(data+index*cols);
+            return reinterpret_cast<T*>(data+index*strides);
         }
 
         //return the data pointer
@@ -44,6 +38,7 @@ namespace gnns
     public:
         size_t cols;
         size_t rows;
+        size_t strides;
 
     private:
         T* data;
