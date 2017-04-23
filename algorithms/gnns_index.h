@@ -82,7 +82,7 @@ namespace gnns
 
         void knn_search(const Matrix<ElementType>& queries,
             Matrix<IndexType>& indices,
-            Matrix<DistanceType> dists,
+            Matrix<DistanceType>& dists,
             size_t knn,
             const Search_Params& params)
         {

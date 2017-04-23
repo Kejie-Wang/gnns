@@ -62,15 +62,147 @@ namespace gnns
         }
 
         /*
+         * @brief get the elements of the matrix in [row, col] and return the val
+         * @params m: the input matrix
+         * @params row, col: the input index
+         * @return the value in index [row, col] of matrix m
+         */
+        __device__
+        float get_element(Matrix<float> m, size_t row, size_t col)
+        {
+            float* data = m.data;
+            return data[row * m.strides + col];
+        }
+
+        /*
+         * @brief set the matrix element in index [row, col]
+         * @params m: the input matrix
+         * @params row, col: the input index
+         * @params value: the set value
+         */
+        __device__
+        void set_element(Matrix<float> m, size_t row, size_t col, float value)
+        {
+            float* data = m.data;
+            data[row*m.strides + col] = value;
+        }
+
+        /*
+         * @brief kernel function used to compute the two set distances
+         * @params points_1: points set 1 in shape [point_num_1, vec_len]
+         * @params points_2: points set 2 in shape [point_num_2, vec_len]
+         * @params dists: the distance in shape [point_num_1, point_num_2]
+         *                 in which dists[i][j] is the distance of points_1[i] and points_2[j]
+         */
+        __global__
+        void dist_compute(Matrix<float> points_1, Matrix<float>points_2, Matrix<float> dists)
+        {
+            size_t r = threadIdx.x;
+            size_t c = threadIdx.y;
+            size_t vec_len = points_1.cols;
+
+            float value = 0;
+            for(int i=0;i<vec_len;i+=BLOCK_SIZE)
+            {
+                //fetch a block of points set from the global memory to the shared memory
+                __shared__ float p1[BLOCK_SIZE][BLOCK_SIZE];
+                __shared__ float p2[BLOCK_SIZE][BLOCK_SIZE];
+                if(blockIdx.x * blockDim.x + r < points_1.rows && c + i < points_1.cols)
+                    p1[r][c] = get_element(points_1, blockIdx.x * blockDim.x + r, c + i);
+                else
+                    p1[r][c] = 0;
+
+                if(blockIdx.y * blockDim.y + r < points_2.rows && c + i < points_2.cols)
+                    p2[r][c] = get_element(points_2, blockIdx.y * blockDim.y + r, c + i);
+                else
+                    p2[r][c] = 0;
+
+                //sync all threads to finish the data fetching into shared memory
+                __syncthreads();
+
+                for(int j=0;j<BLOCK_SIZE;++j)
+                {
+                    float diff = p1[r][j] - p2[c][j];
+                    value += diff * diff;
+                }
+
+                //sync all threads in this block to finish the distance computation
+                __syncthreads();
+            }
+
+            //set the distance element
+            if(blockIdx.x * blockDim.x + r < points_1.rows && blockIdx.y * blockDim.y + c < points_2.rows)
+                set_element(dists, blockIdx.x * blockDim.x + r, blockIdx.y * blockDim.y + c, value);
+        }
+
+        /*
+         * @brief a naive knn graph construction of gpu version
+         * @params points: the points set
+         * @params k_: the params of knn graph
+         */
+        void naive_construction_gpu(const Matrix<float>& points, size_t k_)
+        {
+            //copy data from host to device
+            float* device_data;
+            cudaMalloc(&device_data, sizeof(float) * points.rows * points.strides);
+            cudaMemcpy(device_data, points.ptr(), sizeof(float) * points.rows * points.strides, cudaMemcpyHostToDevice);
+            Matrix<float> device_points(device_data, points.rows, points.cols, points.cols);
+
+            //device dist data allocation
+            //it used for all batch
+            float* device_dists_ptr;
+            cudaMalloc(&device_dists_ptr, sizeof(float) * BATCH_SIZE_X * points.rows);
+
+            //host dist data allocation
+            float* host_dist_ptr;
+            host_dist_ptr = new float[BATCH_SIZE_X*points.rows];
+
+            //compute [BATCH_SIZE_X, BATCH_SIZE_Y] distance every kernel
+            //for the outer iteration, it nerges all BATCH_SIZE_X distances and get the first k min distances and indices
+            for(int i=0;i<points.rows;i+=BATCH_SIZE_X)
+            {
+                size_t x_len = points.rows-i>BATCH_SIZE_X ? BATCH_SIZE_X : points.rows-i;
+                Matrix<float> device_dists(device_dists_ptr, x_len, points.rows, points.rows);
+
+                for(int j=0;j<points.rows;j+=BATCH_SIZE_Y)
+                {
+                    size_t y_len = points.rows-j>BATCH_SIZE_Y ? BATCH_SIZE_Y : points.rows-j;
+
+                    Matrix<float> device_points_sub_1(device_points.ptr()+i*device_points.strides, x_len, device_points.cols, device_points.strides);
+                    Matrix<float> device_points_sub_2(device_points.ptr()+j*device_points.strides, y_len, device_points.cols, device_points.strides);
+                    Matrix<float> device_dists_sub(device_dists.ptr() + j, x_len, y_len, device_dists.strides);
+
+                    dim3 block_size(BLOCK_SIZE, BLOCK_SIZE);
+                    dim3 block_num((x_len+BLOCK_SIZE-1)/BLOCK_SIZE, (y_len+BLOCK_SIZE-1)/BLOCK_SIZE);
+                    dist_compute<<<block_num, block_size>>>(device_points_sub_1, device_points_sub_2, device_dists_sub);
+                }
+
+                //copy the distance from device to host
+                Matrix<float> host_dist(host_dist_ptr, x_len, points.rows, points.rows);
+                cudaMemcpy(host_dist.ptr(), device_dists.ptr(), sizeof(float)*x_len*device_dists.strides, cudaMemcpyDeviceToHost);
+
+                //get the first n min distances and indices
+                for(int j=0;j<x_len;++j)
+                {
+                    nth_index_element(host_dist[i], host_dist.cols, knn_dists[i+j], knn_indices[i+j], k_);
+                }
+            }
+
+            //free the device data and host data
+            cudaFree(device_data);
+            cudaFree(device_dists_ptr);
+            delete[] host_dist_ptr;
+        }
+
+        /*
          * @brief use a naive construction way to build a knn nearest neighbor graph
          * @param data: the coordinate of the point in matrix type with shape [point_num, dim]
          */
-        void naive_construction(const std::vector<ElementType*>& points, const size_t vec_len, const size_t k)
+        void naive_construction(const std::vector<ElementType*>& points, const size_t vec_len, const size_t k_)
         {
             size_t vec_num = points.size();
 
-            DistanceType *d = new DistanceType[vec_num*vec_num];
-            Matrix<DistanceType> dist(d, vec_num, vec_num);
+            Matrix<DistanceType> dist(new DistanceType[vec_num*vec_num], vec_num, vec_num);
 
             //compute the distance between each two points
             for(int i=0;i<vec_num;++i)
@@ -85,8 +217,9 @@ namespace gnns
 
             for(int i=0;i<vec_num;++i)
             {
-                nth_index_element(dist[i], vec_num, distances[i], indices[i], k);
+                nth_index_element(dist[i], vec_num, knn_dists[i], knn_indices[i], k_);
             }
+            delete[] dist.ptr();
         }
 
     public:
@@ -96,10 +229,10 @@ namespace gnns
 
         ~Knn_Graph()
         {
-            if(indices.ptr())
-                delete[] indices.ptr();
-            if(distances.ptr())
-                delete[] distances.ptr();
+            if(knn_indices.ptr())
+                delete[] knn_indices.ptr();
+            if(knn_dists.ptr())
+                delete[] knn_dists.ptr();
         }
 
         /*
@@ -111,13 +244,26 @@ namespace gnns
         void build_graph(const std::vector<ElementType*>& points, const size_t vec_len, const size_t k, BUILD_GRAPH_METHOD method)
         {
             size_t vec_num = points.size();
-            indices = Matrix<IndexType>(new IndexType[vec_num*k], vec_num, k);
-            distances = Matrix<DistanceType>(new DistanceType[vec_num*k], vec_num, k);
+            knn_indices = Matrix<IndexType>(new IndexType[vec_num*k], vec_num, k);
+            knn_dists = Matrix<DistanceType>(new DistanceType[vec_num*k], vec_num, k);
             this->k = k;
 
             if(method==NAIVE)
             {
-                naive_construction(points, vec_len, k);
+                // naive_construction(points, vec_len, k);
+                naive_construction_gpu(points, k);
+            }
+        }
+
+        void build_graph(const Matrix<ElementType>& points, const size_t k, BUILD_GRAPH_METHOD method)
+        {
+            size_t vec_num = points.rows;
+            knn_indices = Matrix<IndexType>(new IndexType[vec_num*k], vec_num, k);
+            knn_dists = Matrix<DistanceType>(new DistanceType[vec_num*k], vec_num, k);
+            this->k = k;
+            if(method == NAIVE)
+            {
+                naive_construction_gpu(points, vec_len, k);
             }
         }
 
@@ -130,13 +276,13 @@ namespace gnns
         void load_graph(const std::string& graph_index_path, const std::string& graph_dist_path)
         {
             try{
-                indices = load_from_file<IndexType>(graph_index_path);
-                distances = load_from_file<DistanceType>(graph_dist_path);
-                if(indices.rows != distances.rows || indices.cols != distances.cols)
+                knn_indices = load_from_file<IndexType>(graph_index_path);
+                knn_dists = load_from_file<DistanceType>(graph_dist_path);
+                if(knn_indices.rows != knn_dists.rows || knn_indices.cols != knn_dists.cols)
                 {
                     throw GnnsException("Saved graph file error\n");
                 }
-                k = indices.cols;
+                k = knn_indices.cols;
             }catch (std::exception& e){
                 throw e;
             }
@@ -151,8 +297,8 @@ namespace gnns
         void save_graph(const std::string& index_file_path, const std::string& dist_file_path)
         {
             try{
-                save_to_file<IndexType>(indices, index_file_path);
-                save_to_file<DistanceType>(distances, dist_file_path);
+                save_to_file<IndexType>(knn_indices, index_file_path);
+                save_to_file<DistanceType>(knn_dists, dist_file_path);
             }catch (std::exception& e){
                 throw e;
             }
@@ -172,8 +318,8 @@ namespace gnns
             dists.resize(graph_search_expand);
             for(int i=0;i<graph_search_expand;++i)
             {
-                indices[i] = this->indices[search_index][i];
-                dists[i] = this->distances[search_index][i];
+                indices[i] = this->knn_indices[search_index][i];
+                dists[i] = this->knn_dists[search_index][i];
             }
         }
 
@@ -188,7 +334,7 @@ namespace gnns
             neighbors.resize(graph_search_expand);
             for(int i=0;i<graph_search_expand;++i)
             {
-                neighbors[i] = this->indices[search_index][i];
+                neighbors[i] = this->knn_indices[search_index][i];
             }
 
             return neighbors;
@@ -197,10 +343,10 @@ namespace gnns
     private:
 
         //distance of the two points
-        Matrix<DistanceType> distances;
+        Matrix<DistanceType> knn_dists;
 
         //nearst neighbor index
-        Matrix<IndexType> indices;
+        Matrix<IndexType> knn_indices;
 
         //k nearst neighbor in the graph
         size_t k;
