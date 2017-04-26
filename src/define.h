@@ -7,12 +7,13 @@
 
 namespace gnns
 {
-    typedef unsigned int size_t;
+    // typedef unsigned int size_t;
 
-    typedef size_t IndexType;
+    typedef unsigned int IndexType;
 
-    #define BLOCK_SIZE 3
-    #define BATCH_SIZE 100
+    #define BLOCK_SIZE 16
+    #define BATCH_SIZE_X 1000
+    #define BATCH_SIZE_Y 1000
 }
 
 #endif //GNNS_DEFINE_H
