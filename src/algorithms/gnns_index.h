@@ -18,7 +18,7 @@ namespace gnns
     class Gnns_Params : public Index_Params
     {
     public:
-        Gnns_Params(size_t Graph_k = 1000, BUILD_GRAPH_METHOD method = NAIVE)
+        Gnns_Params(size_t Graph_k = 10, BUILD_GRAPH_METHOD method = NAIVE_GPU)
         {
             algorithm = "GNNS";
             this->Graph_k = Graph_k;
@@ -41,10 +41,7 @@ namespace gnns
         {
             this->points_num = data.rows;
             this->vec_len = data.cols;
-            for(int i=0;i<points_num;++i)
-            {
-                points.push_back(data[i]);
-            }
+            this->points = data;
         }
 
     public:
@@ -153,7 +150,7 @@ namespace gnns
                 }
                 if(R==0 && dist_and_index.size() < knn)
                 {
-                    std::cout << "R++" << std::endl;
+                    // std::cout << "R++" << std::endl;
                     R += 1;
                 }
             }
@@ -174,7 +171,7 @@ namespace gnns
         Knn_Graph<Distance> graph;
 
         //points
-        std::vector<ElementType*> points;
+        Matrix<ElementType> points;
 
         //vector length
         size_t vec_len;
