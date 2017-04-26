@@ -1,9 +1,22 @@
-cmake_minimum_required(VERSION 3.6)
+cmake_minimum_required(VERSION 3.0)
+
 project(gnns)
 
-set(CMAKE_CXX_STANDARD 11)
+find_package(CUDA REQUIRED)
 
-set(SOURCE_FILES main.cpp)
-add_executable(gnns ${SOURCE_FILES})
+# options for NVCC
+set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS};-gencode arch=compute_20,code=sm_20)
 
-include_directories(algorithms util io evaluation .)
+# Specify the include directories
+include_directories(
+    src
+    src/algorithms
+    src/util
+    src/io
+    src/evaluation
+    )
+
+set (CMAKE_CXX_FLAGS "--std=c++11")
+set (CUDA_PROPAGATE_HOST_FLAGS ON)
+
+cuda_add_executable(gnns examples/main.cu)
