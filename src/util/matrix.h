@@ -16,7 +16,7 @@ namespace gnns
     {
     public:
         //constructor
-        Matrix(T* data_=nullptr, size_t rows_=0, size_t cols_=0, size_t strides_=0) :
+        Matrix(T* data_=NULL, size_t rows_=0, size_t cols_=0, size_t strides_=0) :
                 data(data_), rows(rows_), cols(cols_), strides(strides_)
         {
             if(strides_ == 0) strides=cols;
@@ -24,12 +24,14 @@ namespace gnns
 
 
         //overload the operator [] to return a pointer
+        __host__ __device__
         inline T* operator[](size_t index) const
         {
             return reinterpret_cast<T*>(data+index*strides);
         }
 
         //return the data pointer
+        __host__ __device__
         T* ptr() const
         {
             return reinterpret_cast<T*>(data);
