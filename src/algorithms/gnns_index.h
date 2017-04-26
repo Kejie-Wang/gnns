@@ -18,7 +18,7 @@ namespace gnns
     class Gnns_Params : public Index_Params
     {
     public:
-        Gnns_Params(size_t Graph_k = 10, BUILD_GRAPH_METHOD method = NAIVE_GPU)
+        Gnns_Params(size_t Graph_k = 1000, BUILD_GRAPH_METHOD method = NAIVE_GPU)
         {
             algorithm = "GNNS";
             this->Graph_k = Graph_k;
@@ -27,7 +27,6 @@ namespace gnns
     public:
         size_t Graph_k;
         BUILD_GRAPH_METHOD method;
-
     };
 
     template<typename Distance>
