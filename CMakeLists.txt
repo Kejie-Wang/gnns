@@ -5,7 +5,7 @@ project(gnns)
 find_package(CUDA REQUIRED)
 
 # options for NVCC
-set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS};-gencode arch=compute_20,code=sm_20)
+# set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS};-gencode arch=compute_30,code=sm_30)
 
 # Specify the include directories
 include_directories(
