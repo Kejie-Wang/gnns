@@ -54,7 +54,7 @@ namespace gnns
             this->k = k;
 
             if(method==NAIVE) naive_construction<Distance>(points, knn_indices, knn_dists, k);
-            if(method==NAIVE_GPU) naive_construction_gpu<Distance>(points, knn_indices, knn_dists, k);
+            if(method==NAIVE_GPU) cuda::naive_construction_gpu<Distance>(points, knn_indices, knn_dists, k);
         }
 
         /*
